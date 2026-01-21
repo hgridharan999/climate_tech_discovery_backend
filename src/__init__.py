@@ -1,1 +1,3 @@
-# Climate Search API
+"""Climate Search API Package."""
+
+__version__ = "1.0.0"
