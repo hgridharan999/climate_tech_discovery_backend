@@ -1,5 +1,14 @@
 """Main FastAPI application."""
 
+import sys
+import os
+from pathlib import Path
+
+# Ensure src directory is in Python path
+root_dir = Path(__file__).parent.parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 import logging
 from contextlib import asynccontextmanager
 
