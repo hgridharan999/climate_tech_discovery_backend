@@ -8,10 +8,23 @@ cd /app || cd "$(dirname "$0")"
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
 # Debug: Print environment info
+echo "======= DEPLOYMENT DEBUG INFO ======="
 echo "Working directory: $(pwd)"
 echo "PYTHONPATH: $PYTHONPATH"
 echo "Python version: $(python --version)"
+echo ""
+echo "Contents of src/:"
 ls -la src/
+echo ""
+echo "Checking for src/data/:"
+if [ -d "src/data" ]; then
+    echo "✓ src/data EXISTS"
+    ls -la src/data/
+else
+    echo "✗ src/data MISSING!"
+fi
+echo "====================================="
+echo ""
 
 # Run uvicorn
 exec python -m uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
