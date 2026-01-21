@@ -38,13 +38,6 @@ env/
 .env.local
 .env.*.local
 
-# Data (large files)
-data/
-*.db
-*.npy
-*.bin
-*.pkl
-
 # Logs
 logs/
 *.log
@@ -55,6 +48,13 @@ logs/
 htmlcov/
 .tox/
 .nox/
+
+# Data files (but not src/data source code)
+/data/
+*.db
+*.npy
+*.bin
+*.pkl
 
 # Misc
 .DS_Store
