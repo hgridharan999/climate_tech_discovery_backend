@@ -5,9 +5,10 @@ from setuptools import setup, find_packages
 setup(
     name="climate-search-api",
     version="1.0.0",
-    packages=find_packages(),
+    packages=find_packages(include=["src", "src.*"]),
+    package_dir={"": "."},
     python_requires=">=3.10",
     install_requires=[
-        # Add your requirements here
+        # Dependencies are in requirements.txt
     ],
 )
