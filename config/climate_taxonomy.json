@@ -1,0 +1,138 @@
+{
+  "verticals": [
+    {
+      "id": "carbon_management",
+      "name": "Carbon Management",
+      "keywords": [
+        "carbon capture", "direct air capture", "DAC", "carbon removal",
+        "biochar", "carbon sequestration", "carbon offset", "negative emissions",
+        "carbon storage", "CCUS", "carbon utilization", "mineralization"
+      ],
+      "description": "Technologies for capturing, storing, and utilizing carbon dioxide"
+    },
+    {
+      "id": "clean_energy",
+      "name": "Clean Energy",
+      "keywords": [
+        "solar", "wind", "renewable energy", "photovoltaic", "PV",
+        "wind turbine", "offshore wind", "onshore wind", "solar farm",
+        "clean power", "geothermal", "tidal", "wave energy", "hydropower"
+      ],
+      "description": "Renewable energy generation technologies"
+    },
+    {
+      "id": "energy_storage",
+      "name": "Energy Storage",
+      "keywords": [
+        "battery", "lithium-ion", "grid storage", "energy storage",
+        "flow battery", "solid state battery", "sodium-ion", "battery recycling",
+        "thermal storage", "compressed air", "pumped hydro", "flywheel"
+      ],
+      "description": "Technologies for storing electrical and thermal energy"
+    },
+    {
+      "id": "green_transportation",
+      "name": "Green Transportation",
+      "keywords": [
+        "electric vehicle", "EV", "sustainable aviation", "SAF",
+        "electric aircraft", "hydrogen fuel cell", "e-mobility", "charging infrastructure",
+        "electric bus", "electric truck", "maritime decarbonization", "green shipping"
+      ],
+      "description": "Low-emission transportation solutions"
+    },
+    {
+      "id": "sustainable_agriculture",
+      "name": "Sustainable Agriculture",
+      "keywords": [
+        "precision agriculture", "vertical farming", "alternative protein",
+        "regenerative agriculture", "agtech", "indoor farming", "plant-based",
+        "cultivated meat", "soil health", "crop monitoring", "fermentation",
+        "agricultural robotics", "sustainable food"
+      ],
+      "description": "Sustainable food production and agricultural technology"
+    },
+    {
+      "id": "built_environment",
+      "name": "Built Environment",
+      "keywords": [
+        "green building", "HVAC", "smart building", "building efficiency",
+        "heat pump", "insulation", "building materials", "net zero building",
+        "energy management", "building automation", "sustainable construction",
+        "green cement", "low carbon concrete"
+      ],
+      "description": "Sustainable buildings and construction"
+    },
+    {
+      "id": "circular_economy",
+      "name": "Circular Economy",
+      "keywords": [
+        "recycling", "circular", "waste management", "plastic recycling",
+        "upcycling", "waste-to-energy", "material recovery", "composting",
+        "textile recycling", "e-waste", "packaging", "biodegradable"
+      ],
+      "description": "Waste reduction and material circularity"
+    },
+    {
+      "id": "climate_fintech",
+      "name": "Climate Fintech",
+      "keywords": [
+        "ESG", "green bonds", "carbon credits", "carbon trading",
+        "climate risk", "sustainable investing", "green finance",
+        "carbon accounting", "emissions tracking", "climate insurance",
+        "impact investing", "sustainability reporting"
+      ],
+      "description": "Financial technology for climate solutions"
+    },
+    {
+      "id": "water_ocean",
+      "name": "Water & Ocean",
+      "keywords": [
+        "water treatment", "desalination", "ocean", "aquaculture",
+        "water purification", "wastewater", "blue carbon", "seaweed",
+        "ocean cleanup", "water recycling", "membrane technology",
+        "sustainable fisheries", "marine technology"
+      ],
+      "description": "Water management and ocean sustainability"
+    },
+    {
+      "id": "industrial_decarbonization",
+      "name": "Industrial Decarbonization",
+      "keywords": [
+        "green hydrogen", "steel decarbonization", "cement", "industrial",
+        "electrolyzer", "ammonia", "industrial heat", "process electrification",
+        "green steel", "aluminum", "chemical industry", "heavy industry"
+      ],
+      "description": "Decarbonizing heavy industry and manufacturing"
+    },
+    {
+      "id": "climate_adaptation",
+      "name": "Climate Adaptation",
+      "keywords": [
+        "flood protection", "drought", "wildfire", "resilience",
+        "climate risk assessment", "early warning", "disaster preparedness",
+        "coastal protection", "climate monitoring", "weather forecasting",
+        "crop resilience", "infrastructure resilience"
+      ],
+      "description": "Adapting to climate change impacts"
+    },
+    {
+      "id": "grid_energy_management",
+      "name": "Grid & Energy Management",
+      "keywords": [
+        "smart grid", "VPP", "virtual power plant", "demand response",
+        "microgrid", "grid optimization", "energy management system",
+        "distributed energy", "grid flexibility", "load balancing",
+        "transmission", "power electronics"
+      ],
+      "description": "Electricity grid modernization and management"
+    }
+  ],
+  "query_synonyms": {
+    "solar": ["photovoltaic", "PV", "solar panel", "solar energy"],
+    "battery": ["energy storage", "lithium-ion", "battery storage"],
+    "EV": ["electric vehicle", "electric car", "e-mobility"],
+    "hydrogen": ["H2", "green hydrogen", "fuel cell"],
+    "carbon capture": ["DAC", "direct air capture", "CCUS"],
+    "recycling": ["circular economy", "waste management", "material recovery"]
+  }
+}

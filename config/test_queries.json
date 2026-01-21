@@ -1,0 +1,134 @@
+{
+  "test_queries": [
+    {
+      "query": "solar panel manufacturing companies",
+      "expected_vertical": "clean_energy",
+      "description": "Should return solar energy companies"
+    },
+    {
+      "query": "carbon capture startups",
+      "expected_vertical": "carbon_management",
+      "description": "Should return DAC and carbon capture companies"
+    },
+    {
+      "query": "battery storage for grid",
+      "expected_vertical": "energy_storage",
+      "description": "Should return grid-scale battery companies"
+    },
+    {
+      "query": "electric vehicle charging",
+      "expected_vertical": "green_transportation",
+      "description": "Should return EV charging infrastructure companies"
+    },
+    {
+      "query": "vertical farming indoor agriculture",
+      "expected_vertical": "sustainable_agriculture",
+      "description": "Should return indoor farming companies"
+    },
+    {
+      "query": "green building materials",
+      "expected_vertical": "built_environment",
+      "description": "Should return sustainable construction companies"
+    },
+    {
+      "query": "plastic recycling technology",
+      "expected_vertical": "circular_economy",
+      "description": "Should return plastic recycling companies"
+    },
+    {
+      "query": "carbon credit trading platform",
+      "expected_vertical": "climate_fintech",
+      "description": "Should return carbon market companies"
+    },
+    {
+      "query": "water desalination technology",
+      "expected_vertical": "water_ocean",
+      "description": "Should return water treatment companies"
+    },
+    {
+      "query": "green hydrogen production",
+      "expected_vertical": "industrial_decarbonization",
+      "description": "Should return hydrogen electrolyzer companies"
+    },
+    {
+      "query": "wildfire detection and prevention",
+      "expected_vertical": "climate_adaptation",
+      "description": "Should return wildfire technology companies"
+    },
+    {
+      "query": "smart grid optimization",
+      "expected_vertical": "grid_energy_management",
+      "description": "Should return grid technology companies"
+    },
+    {
+      "query": "alternative protein plant based meat",
+      "expected_vertical": "sustainable_agriculture",
+      "description": "Should return food tech companies"
+    },
+    {
+      "query": "offshore wind turbine",
+      "expected_vertical": "clean_energy",
+      "description": "Should return wind energy companies"
+    },
+    {
+      "query": "lithium battery recycling",
+      "expected_vertical": "circular_economy",
+      "description": "Should return battery recycling companies"
+    },
+    {
+      "query": "sustainable aviation fuel",
+      "expected_vertical": "green_transportation",
+      "description": "Should return SAF companies"
+    },
+    {
+      "query": "heat pump HVAC",
+      "expected_vertical": "built_environment",
+      "description": "Should return heating/cooling companies"
+    },
+    {
+      "query": "ESG reporting software",
+      "expected_vertical": "climate_fintech",
+      "description": "Should return sustainability software companies"
+    },
+    {
+      "query": "seaweed farming blue carbon",
+      "expected_vertical": "water_ocean",
+      "description": "Should return ocean-based carbon companies"
+    },
+    {
+      "query": "steel decarbonization green steel",
+      "expected_vertical": "industrial_decarbonization",
+      "description": "Should return green steel companies"
+    },
+    {
+      "query": "flood risk climate resilience",
+      "expected_vertical": "climate_adaptation",
+      "description": "Should return climate adaptation companies"
+    },
+    {
+      "query": "virtual power plant demand response",
+      "expected_vertical": "grid_energy_management",
+      "description": "Should return VPP companies"
+    },
+    {
+      "query": "direct air capture CO2",
+      "expected_vertical": "carbon_management",
+      "description": "Should return DAC technology companies"
+    },
+    {
+      "query": "solid state battery EV",
+      "expected_vertical": "energy_storage",
+      "description": "Should return next-gen battery companies"
+    },
+    {
+      "query": "regenerative agriculture soil carbon",
+      "expected_vertical": "sustainable_agriculture",
+      "description": "Should return regenerative ag companies"
+    }
+  ],
+  "evaluation_config": {
+    "metrics": ["ndcg@10", "precision@5", "recall@10", "mrr"],
+    "relevance_threshold": 0.5,
+    "min_results": 5
+  }
+}

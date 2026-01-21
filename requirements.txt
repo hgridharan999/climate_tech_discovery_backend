@@ -1,0 +1,40 @@
+# Climate Search API Dependencies - Updated for Python 3.13
+
+# Web Framework
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Machine Learning & Embeddings
+sentence-transformers>=2.5.0
+torch>=2.2.0
+
+# Vector Search
+faiss-cpu>=1.8.0
+
+# Keyword Search
+rank-bm25>=0.2.2
+
+# Data Processing
+numpy>=1.26.0
+pandas>=2.2.0
+
+# Web Scraping
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+aiohttp>=3.9.0
+lxml>=5.1.0
+
+# Rate Limiting
+slowapi>=0.1.9
+
+# Database
+aiosqlite>=0.20.0
+
+# Utilities
+httpx>=0.26.0
+tenacity>=8.2.0
