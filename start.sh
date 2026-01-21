@@ -26,5 +26,10 @@ fi
 echo "====================================="
 echo ""
 
+# Initialize database if needed
+echo "Initializing database..."
+python init_railway.py || echo "Warning: Database initialization failed"
+echo ""
+
 # Run uvicorn
 exec python -m uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
