@@ -1,0 +1,12 @@
+# Railway ignore file
+# Only ignore these specific paths, not src/data/
+
+.git
+.vscode
+__pycache__
+*.pyc
+.pytest_cache
+.env.local
+/data/
+logs/
+*.log
