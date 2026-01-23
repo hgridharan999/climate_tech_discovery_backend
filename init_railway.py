@@ -29,7 +29,30 @@ async def main():
     print(f"Database initialized. Current startups: {existing_count}")
     
     if existing_count == 0:
-        print("No data found. Run initial_setup.py to populate.")
+        print("No data found. Populating database with startup data...")
+        try:
+            from src.data.scraper import ClimateScraper
+            
+            print("Starting scraper...")
+            async with ClimateScraper(db) as scraper:
+                print("Scraper initialized, fetching startups...")
+                count = await scraper.scrape_all_sources()
+                print(f"✓ Scraper completed. Added {count} startups to database")
+            
+            # Verify data was saved
+            final_count = db.get_startup_count()
+            print(f"✓ Verification: Database now has {final_count} startups")
+            
+            if final_count > 0:
+                stats = db.get_stats()
+                print(f"✓ Verticals: {stats.get('verticals', {})}")
+            else:
+                print("⚠ Warning: No startups were saved to database")
+                
+        except Exception as e:
+            print(f"❌ Error populating database: {e}")
+            import traceback
+            traceback.print_exc()
     else:
         print("Database ready!")
 
