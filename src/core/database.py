@@ -12,21 +12,22 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-        def get_startup_by_name_and_source(self, name: str, source: str = None) -> Optional[Dict[str, Any]]:
-            """Get a startup by name and source."""
-            with self._get_connection() as conn:
-                cursor = conn.cursor()
-                if source:
-                    cursor.execute(
-                        "SELECT * FROM startups WHERE name = ? AND source = ?", (name, source)
-                    )
-                else:
-                    cursor.execute(
-                        "SELECT * FROM startups WHERE name = ?", (name,)
-                    )
-                row = cursor.fetchone()
-                return dict(row) if row else None
     """SQLite database manager with FTS5 support."""
+
+    def get_startup_by_name_and_source(self, name: str, source: str = None) -> Optional[Dict[str, Any]]:
+        """Get a startup by name and source."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if source:
+                cursor.execute(
+                    "SELECT * FROM startups WHERE name = ? AND source = ?", (name, source)
+                )
+            else:
+                cursor.execute(
+                    "SELECT * FROM startups WHERE name = ?", (name,)
+                )
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
     def __init__(self, db_path: str):
         self.db_path = Path(db_path)
