@@ -5,7 +5,22 @@ from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 
-from ..models import StartupResponse, VerticalInfo, VerticalsResponse
+from ..models import StartupResponse, StartupCreate, VerticalInfo, VerticalsResponse
+from fastapi import Body
+@router.post("/startups", response_model=StartupResponse, status_code=201)
+async def create_startup(
+    startup: StartupCreate = Body(...),
+    db: Database = Depends(get_database),
+):
+    """Create a new startup."""
+    # Convert to dict and insert
+    startup_dict = startup.dict()
+    db.insert_startup(startup_dict)
+    # Fetch the inserted startup (by name and source)
+    inserted = db.get_startup_by_name_and_source(startup_dict["name"], startup_dict.get("source"))
+    if not inserted:
+        raise HTTPException(status_code=500, detail="Failed to insert startup")
+    return StartupResponse(**inserted)
 from ...core.config import settings
 from ...core.database import Database
 from ...data.category_mapper import CategoryMapper

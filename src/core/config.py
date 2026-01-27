@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     id_mapping_path: str = "data/embeddings/startup_id_mapping.json"
 
     # API keys
-    crunchbase_api_key: str = ""
+    pitchbook_api_key: str = ""
 
     # CORS
     allowed_origins: str = "http://localhost:3000,http://localhost:5173"

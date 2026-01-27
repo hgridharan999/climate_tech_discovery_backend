@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 class StartupBase(BaseModel):
     """Base startup schema."""
 
-    id: int
     name: str
     short_description: Optional[str] = None
     long_description: Optional[str] = None
@@ -23,6 +22,11 @@ class StartupBase(BaseModel):
     secondary_verticals: Optional[List[str]] = None
     technologies: Optional[List[str]] = None
     keywords: Optional[List[str]] = None
+
+
+class StartupCreate(StartupBase):
+    """Startup creation schema (no id, no timestamps)."""
+    source: Optional[str] = None
 
 
 class StartupResponse(StartupBase):
