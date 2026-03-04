@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 
 from ..models import StatsResponse, HealthResponse, EvaluationResponse
 from ...core.config import settings
@@ -75,12 +75,34 @@ async def get_stats(
 async def evaluate_search(
     search_engine: HybridSearch = Depends(get_search_engine),
 ):
-    """
-    Run evaluation on test queries and return metrics.
-
-    This endpoint runs the search system against a predefined set of test queries
-    and calculates relevance metrics including NDCG@10.
-    """
+    """Run evaluation on test queries and return relevance metrics."""
     evaluator = SearchEvaluator(search_engine)
     results = evaluator.evaluate_test_queries()
     return EvaluationResponse(**results)
+
+
+async def _run_rescrape(db: Database, search_engine: HybridSearch):
+    """Background task: scrape new startup data and rebuild indexes."""
+    try:
+        from ...data.scraper import ClimateScraper
+        async with ClimateScraper(db) as scraper:
+            count = await scraper.scrape_all_sources()
+            logger.info(f"Rescrape complete: {count} startups in database")
+        search_engine.rebuild_index()
+        logger.info("Search indexes rebuilt after rescrape")
+    except Exception as e:
+        logger.error(f"Rescrape failed: {e}")
+
+
+@router.post("/api/admin/rescrape")
+async def rescrape(
+    background_tasks: BackgroundTasks,
+    db: Database = Depends(get_database),
+    search_engine: HybridSearch = Depends(get_search_engine),
+):
+    """
+    Trigger a background rescrape of all startup sources and rebuild indexes.
+    The API continues serving requests while the scrape runs in the background.
+    """
+    background_tasks.add_task(_run_rescrape, db, search_engine)
+    return {"status": "rescrape started", "message": "Check /health for updated startup_count"}

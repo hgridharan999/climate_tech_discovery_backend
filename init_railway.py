@@ -25,8 +25,13 @@ async def main():
     existing_count = db.get_startup_count()
     print(f"Database initialized. Current startups: {existing_count}")
 
-    if existing_count == 0:
-        print("No data found. Populating database with startup data...")
+    MIN_STARTUPS = 50  # Repopulate if below this threshold
+
+    if existing_count < MIN_STARTUPS:
+        if existing_count == 0:
+            print("No data found. Populating database with startup data...")
+        else:
+            print(f"Only {existing_count} startups found (minimum: {MIN_STARTUPS}). Re-populating...")
         try:
             from src.data.scraper import ClimateScraper
 
@@ -39,8 +44,8 @@ async def main():
             final_count = db.get_startup_count()
             print(f"Verification: Database now has {final_count} startups")
 
-            if final_count == 0:
-                print("Warning: No startups from scraper. Generating sample data...")
+            if final_count < MIN_STARTUPS:
+                print("Warning: Not enough startups from scraper. Generating sample data...")
                 from src.data.scraper import ClimateScraper as CS
                 async with CS(db) as scraper:
                     sample = scraper.generate_sample_data(count=300)
@@ -63,14 +68,22 @@ async def main():
             from src.search.hybrid_search import HybridSearch
 
             search = HybridSearch(db)
-            # Only rebuild if no existing index
             embeddings, startup_ids = search.embedder.load_embeddings()
-            if embeddings is None or len(embeddings) != current_count:
-                print("Rebuilding embeddings and FAISS index...")
+
+            needs_rebuild = (
+                embeddings is None
+                or startup_ids is None
+                or len(embeddings) != current_count
+                # Stale index: IDs in index don't match current DB IDs
+                or set(startup_ids) != set(s["id"] for s in db.get_all_startups())
+            )
+
+            if needs_rebuild:
+                print(f"Index mismatch (index={len(embeddings) if embeddings is not None else 0}, db={current_count}). Rebuilding...")
                 search.rebuild_index()
                 print("Search indexes built successfully")
             else:
-                print(f"Search indexes already exist ({len(embeddings)} vectors). Skipping rebuild.")
+                print(f"Search indexes are up to date ({len(embeddings)} vectors). Skipping rebuild.")
         except Exception as e:
             print(f"Warning: Could not build search index: {e}")
             print("The API will still work using BM25 keyword search.")
