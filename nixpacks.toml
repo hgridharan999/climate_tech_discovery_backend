@@ -3,6 +3,7 @@ nixPkgs = ["python311", "gcc"]
 
 [phases.install]
 cmds = [
+  "python3.11 -m venv /opt/venv",
   "/opt/venv/bin/pip install -r requirements.txt"
 ]
 
