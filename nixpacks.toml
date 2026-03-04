@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = ["python311", "gcc"]
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install -r requirements.txt"
+]
+
+[start]
+cmd = "bash start.sh"
+
+[variables]
+# Cache sentence-transformers models in the persistent data volume
+SENTENCE_TRANSFORMERS_HOME = "/app/data/models"
+TRANSFORMERS_CACHE = "/app/data/models"
+HF_HOME = "/app/data/models"
+# Use CPU-only torch (much smaller)
+PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu"

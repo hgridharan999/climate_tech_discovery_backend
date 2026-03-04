@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # API keys
     pitchbook_api_key: str = ""
+    firecrawl_api_key: str = ""
 
     # CORS
     allowed_origins: str = "http://localhost:3000,http://localhost:5173"
@@ -31,9 +32,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Embedding configuration
-    embedding_model: str = "sentence-transformers/all-mpnet-base-v2"
-    embedding_batch_size: int = 16
-    embedding_dim: int = 768
+    # all-MiniLM-L6-v2 is 80MB vs 420MB for all-mpnet-base-v2 — much faster to deploy
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_batch_size: int = 32
+    embedding_dim: int = 384
 
     # Search configuration
     semantic_weight: float = 0.6

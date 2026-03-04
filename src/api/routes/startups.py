@@ -3,24 +3,9 @@
 import logging
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 
 from ..models import StartupResponse, StartupCreate, VerticalInfo, VerticalsResponse
-from fastapi import Body
-@router.post("/startups", response_model=StartupResponse, status_code=201)
-async def create_startup(
-    startup: StartupCreate = Body(...),
-    db: Database = Depends(get_database),
-):
-    """Create a new startup."""
-    # Convert to dict and insert
-    startup_dict = startup.dict()
-    db.insert_startup(startup_dict)
-    # Fetch the inserted startup (by name and source)
-    inserted = db.get_startup_by_name_and_source(startup_dict["name"], startup_dict.get("source"))
-    if not inserted:
-        raise HTTPException(status_code=500, detail="Failed to insert startup")
-    return StartupResponse(**inserted)
 from ...core.config import settings
 from ...core.database import Database
 from ...data.category_mapper import CategoryMapper
@@ -48,6 +33,20 @@ def get_category_mapper() -> CategoryMapper:
     if _category_mapper is None:
         _category_mapper = CategoryMapper()
     return _category_mapper
+
+
+@router.post("/startups", response_model=StartupResponse, status_code=201)
+async def create_startup(
+    startup: StartupCreate = Body(...),
+    db: Database = Depends(get_database),
+):
+    """Create a new startup."""
+    startup_dict = startup.dict()
+    db.insert_startup(startup_dict)
+    inserted = db.get_startup_by_name_and_source(startup_dict["name"], startup_dict.get("source"))
+    if not inserted:
+        raise HTTPException(status_code=500, detail="Failed to insert startup")
+    return StartupResponse(**inserted)
 
 
 @router.get("/startups/{startup_id}", response_model=StartupResponse)
@@ -85,14 +84,11 @@ async def get_verticals(
     category_mapper: CategoryMapper = Depends(get_category_mapper),
 ):
     """Get all climate verticals with startup counts."""
-    # Get base vertical info
     all_verticals = category_mapper.get_all_verticals()
 
-    # Get counts from database
     stats = db.get_stats()
     vertical_counts = stats.get("verticals", {})
 
-    # Combine
     verticals = []
     for v in all_verticals:
         verticals.append(
@@ -104,7 +100,6 @@ async def get_verticals(
             )
         )
 
-    # Sort by count descending
     verticals.sort(key=lambda x: x.startup_count, reverse=True)
 
     return VerticalsResponse(

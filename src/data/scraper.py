@@ -19,6 +19,336 @@ from .category_mapper import CategoryMapper
 logger = logging.getLogger(__name__)
 
 
+class FirecrawlScraper:
+    """Scrapes climate startup data using the Firecrawl API."""
+
+    def __init__(self, db: Database, api_key: str):
+        self.db = db
+        self.api_key = api_key
+        self.category_mapper = CategoryMapper()
+
+    def _get_client(self):
+        from firecrawl import FirecrawlApp
+        return FirecrawlApp(api_key=self.api_key)
+
+    def _extract_startups_from_markdown(self, markdown: str, source: str) -> List[Dict[str, Any]]:
+        """Parse markdown text to extract company name/description pairs."""
+        startups = []
+        if not markdown:
+            return startups
+
+        # Split by lines to find company entries
+        lines = markdown.split("\n")
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            # Look for headings or bold company names
+            name = None
+            desc = None
+
+            # Match markdown headings like ## Company Name or ### Company Name
+            heading_match = re.match(r"^#{1,4}\s+(.+)$", line)
+            if heading_match:
+                name = heading_match.group(1).strip().rstrip(".")
+                # Next non-empty line(s) = description
+                j = i + 1
+                desc_parts = []
+                while j < len(lines) and j < i + 5:
+                    next_line = lines[j].strip()
+                    if next_line and not next_line.startswith("#"):
+                        # Remove markdown links but keep text
+                        clean = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", next_line)
+                        desc_parts.append(clean)
+                        break
+                    j += 1
+                desc = " ".join(desc_parts)
+
+            # Match **Company Name** patterns
+            bold_match = re.match(r"^\*\*(.+?)\*\*[:\s\-–]*(.*)$", line)
+            if bold_match and not heading_match:
+                name = bold_match.group(1).strip()
+                desc = bold_match.group(2).strip()
+                if not desc and i + 1 < len(lines):
+                    desc = lines[i + 1].strip()
+
+            if name and len(name) > 2 and len(name) < 100:
+                # Filter out navigation/UI elements
+                skip_words = {"menu", "search", "login", "sign up", "home", "about",
+                              "contact", "blog", "news", "jobs", "careers", "back",
+                              "next", "previous", "more", "less", "view all", "see all"}
+                if name.lower() not in skip_words:
+                    primary_vertical, secondary = self.category_mapper.map_startup(name, desc or "")
+                    if primary_vertical or source in ("yc_climate", "climatebase"):
+                        startup = {
+                            "name": name,
+                            "short_description": desc[:500] if desc else "",
+                            "primary_vertical": primary_vertical or "clean_energy",
+                            "secondary_verticals": secondary,
+                            "source": source,
+                            "source_id": re.sub(r"[^a-z0-9]", "-", name.lower())[:50],
+                        }
+                        startups.append(startup)
+            i += 1
+
+        return startups
+
+    def scrape_yc_climate(self) -> List[Dict[str, Any]]:
+        """Scrape Y Combinator climate companies via Firecrawl extract."""
+        logger.info("Scraping YC climate companies via Firecrawl...")
+        startups = []
+        try:
+            app = self._get_client()
+            # YC company search filtered to climate
+            result = app.scrape_url(
+                "https://www.ycombinator.com/companies?tags=Climate",
+                formats=["extract"],
+                actions=[{"type": "wait", "milliseconds": 2000}],
+                extract={
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "companies": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "description": {"type": "string"},
+                                        "location": {"type": "string"},
+                                        "batch": {"type": "string"},
+                                        "website": {"type": "string"},
+                                    },
+                                    "required": ["name"],
+                                },
+                            }
+                        },
+                        "required": ["companies"],
+                    },
+                    "prompt": "Extract all company names, descriptions, locations, YC batch (e.g. S22, W23), and website URLs from this page.",
+                },
+            )
+            companies = []
+            if hasattr(result, "extract") and result.extract:
+                data = result.extract
+                if isinstance(data, dict):
+                    companies = data.get("companies", [])
+            for company in companies:
+                name = company.get("name", "").strip()
+                if not name:
+                    continue
+                desc = company.get("description", "")
+                primary_vertical, secondary = self.category_mapper.map_startup(name, desc)
+                startup = {
+                    "name": name,
+                    "short_description": desc[:500],
+                    "headquarters_location": company.get("location", ""),
+                    "website_url": company.get("website", ""),
+                    "primary_vertical": primary_vertical or "clean_energy",
+                    "secondary_verticals": secondary,
+                    "source": "yc",
+                    "source_id": re.sub(r"[^a-z0-9]", "-", name.lower())[:50],
+                }
+                startups.append(startup)
+            logger.info(f"Scraped {len(startups)} YC climate companies")
+        except Exception as e:
+            logger.error(f"Error scraping YC via Firecrawl: {e}")
+        return startups
+
+    def scrape_climatebase(self) -> List[Dict[str, Any]]:
+        """Scrape Climatebase companies via Firecrawl."""
+        logger.info("Scraping Climatebase via Firecrawl...")
+        startups = []
+        try:
+            app = self._get_client()
+            result = app.scrape_url(
+                "https://climatebase.org/companies",
+                formats=["extract"],
+                actions=[{"type": "wait", "milliseconds": 2000}],
+                extract={
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "companies": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "description": {"type": "string"},
+                                        "sector": {"type": "string"},
+                                        "location": {"type": "string"},
+                                        "website": {"type": "string"},
+                                        "employee_count": {"type": "string"},
+                                    },
+                                    "required": ["name"],
+                                },
+                            }
+                        },
+                        "required": ["companies"],
+                    },
+                    "prompt": "Extract all company names, descriptions, sectors, locations, website URLs, and employee counts from this climate company directory.",
+                },
+            )
+            companies = []
+            if hasattr(result, "extract") and result.extract:
+                data = result.extract
+                if isinstance(data, dict):
+                    companies = data.get("companies", [])
+            for company in companies:
+                name = company.get("name", "").strip()
+                if not name:
+                    continue
+                desc = company.get("description", "")
+                primary_vertical, secondary = self.category_mapper.map_startup(
+                    name, f"{desc} {company.get('sector', '')}"
+                )
+                startup = {
+                    "name": name,
+                    "short_description": desc[:500],
+                    "headquarters_location": company.get("location", ""),
+                    "website_url": company.get("website", ""),
+                    "employee_count": company.get("employee_count", ""),
+                    "primary_vertical": primary_vertical or "clean_energy",
+                    "secondary_verticals": secondary,
+                    "source": "climatebase",
+                    "source_id": re.sub(r"[^a-z0-9]", "-", name.lower())[:50],
+                }
+                startups.append(startup)
+            logger.info(f"Scraped {len(startups)} Climatebase companies")
+        except Exception as e:
+            logger.error(f"Error scraping Climatebase via Firecrawl: {e}")
+        return startups
+
+    def _scrape_vc_portfolio(self, url: str, source_name: str) -> List[Dict[str, Any]]:
+        """Generic VC portfolio scraper using Firecrawl extract."""
+        startups = []
+        try:
+            app = self._get_client()
+            result = app.scrape_url(
+                url,
+                formats=["extract"],
+                extract={
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "companies": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "description": {"type": "string"},
+                                        "website": {"type": "string"},
+                                        "sector": {"type": "string"},
+                                    },
+                                    "required": ["name"],
+                                },
+                            }
+                        },
+                        "required": ["companies"],
+                    },
+                    "prompt": f"Extract all portfolio company names, descriptions, websites, and sectors from this venture capital portfolio page.",
+                },
+            )
+            companies = []
+            if hasattr(result, "extract") and result.extract:
+                data = result.extract
+                if isinstance(data, dict):
+                    companies = data.get("companies", [])
+            for company in companies:
+                name = company.get("name", "").strip()
+                if not name:
+                    continue
+                desc = company.get("description", "")
+                primary_vertical, secondary = self.category_mapper.map_startup(
+                    name, f"{desc} {company.get('sector', '')}"
+                )
+                startup = {
+                    "name": name,
+                    "short_description": desc[:500],
+                    "website_url": company.get("website", ""),
+                    "primary_vertical": primary_vertical or "clean_energy",
+                    "secondary_verticals": secondary,
+                    "source": source_name,
+                    "source_id": re.sub(r"[^a-z0-9]", "-", name.lower())[:50],
+                }
+                startups.append(startup)
+            logger.info(f"Scraped {len(startups)} companies from {source_name}")
+        except Exception as e:
+            logger.error(f"Error scraping {source_name} via Firecrawl: {e}")
+        return startups
+
+    def scrape_all_vc_portfolios(self) -> List[Dict[str, Any]]:
+        """Scrape multiple climate VC portfolio pages."""
+        all_startups = []
+
+        vc_sources = [
+            ("https://www.lowercarbon.com/portfolio", "lowercarbon"),
+            ("https://mcjcollective.com/our-work/portfolio", "mcj_collective"),
+            ("https://congruentvc.com/portfolio/", "congruent_vc"),
+            ("https://breakthrough.energy/program/breakthrough-energy-ventures/", "breakthrough_energy"),
+            ("https://www.energy-impact.com/portfolio/", "energy_impact"),
+            ("https://earthshot.eco/portfolio/", "earthshot"),
+        ]
+
+        for url, source_name in vc_sources:
+            try:
+                logger.info(f"Scraping {source_name}...")
+                companies = self._scrape_vc_portfolio(url, source_name)
+                all_startups.extend(companies)
+                # Small delay between requests
+                import time
+                time.sleep(1)
+            except Exception as e:
+                logger.warning(f"Failed to scrape {source_name}: {e}")
+
+        return all_startups
+
+    def scrape_all_sources(self) -> int:
+        """Scrape all sources and save to database."""
+        all_startups = []
+
+        # YC Climate companies
+        try:
+            yc = self.scrape_yc_climate()
+            all_startups.extend(yc)
+        except Exception as e:
+            logger.error(f"YC scraping failed: {e}")
+
+        # Climatebase
+        try:
+            cb = self.scrape_climatebase()
+            all_startups.extend(cb)
+        except Exception as e:
+            logger.error(f"Climatebase scraping failed: {e}")
+
+        # VC portfolios
+        try:
+            vc = self.scrape_all_vc_portfolios()
+            all_startups.extend(vc)
+        except Exception as e:
+            logger.error(f"VC portfolio scraping failed: {e}")
+
+        # Deduplicate by name
+        seen_names = set()
+        unique_startups = []
+        for s in all_startups:
+            key = s["name"].lower().strip()
+            if key not in seen_names:
+                seen_names.add(key)
+                unique_startups.append(s)
+
+        # Save to database
+        saved = 0
+        for startup in unique_startups:
+            result = self.db.insert_startup(startup)
+            if result:
+                saved += 1
+
+        logger.info(f"Saved {saved} unique startups from Firecrawl sources")
+        return saved
+
+
 class ClimateScraper:
     """Scrapes climate startup data from multiple sources."""
 
@@ -60,31 +390,82 @@ class ClimateScraper:
             raise
 
     async def scrape_yc_climate(self) -> List[Dict[str, Any]]:
-        """Scrape Y Combinator climate companies - using known climate startups list."""
+        """Load Y Combinator climate companies — expanded curated list."""
         logger.info("Loading Y Combinator climate companies...")
-        startups = []
 
-        # Curated list with explicit verticals as fallback
         yc_climate_companies = [
-            {"name": "Oklo", "description": "Emission free, always on power from advanced fission power plants", "location": "Santa Clara, CA", "vertical": "clean_energy"},
-            {"name": "Ginkgo Bioworks", "description": "Making biology easier to engineer", "location": "Boston, MA", "vertical": "industrial_decarbonization"},
-            {"name": "Embark Trucks", "description": "Self-driving semi trucks", "location": "San Francisco, CA", "vertical": "green_transportation"},
-            {"name": "Momentus", "description": "Space infrastructure services company", "location": "Santa Clara, CA", "vertical": "grid_energy_management"},
-            {"name": "Cruise", "description": "Self-driving cars", "location": "San Francisco, CA", "vertical": "green_transportation"},
-            {"name": "Rigetti Computing", "description": "Quantum coherent supercomputing", "location": "Berkeley, CA", "vertical": "climate_fintech"},
-            {"name": "Benchling", "description": "Unlocking the power of biotech with modern software", "location": "San Francisco, CA", "vertical": "sustainable_agriculture"},
-            {"name": "PlanGrid", "description": "Mobile applications for the construction industry", "location": "San Francisco, CA", "vertical": "built_environment"},
+            # Energy
+            {"name": "Oklo", "description": "Advanced fission power plants for emission-free always-on power", "location": "Santa Clara, CA", "vertical": "clean_energy"},
+            {"name": "Commonwealth Fusion Systems", "description": "Compact fusion energy using high-temperature superconducting magnets", "location": "Cambridge, MA", "vertical": "clean_energy"},
+            {"name": "Heliogen", "description": "AI-powered concentrated solar energy for industrial heat", "location": "Pasadena, CA", "vertical": "clean_energy"},
+            {"name": "Sunrun", "description": "Residential solar and battery storage systems", "location": "San Francisco, CA", "vertical": "clean_energy"},
+            {"name": "Palmetto Clean Technology", "description": "Platform for residential clean energy adoption", "location": "Charlotte, NC", "vertical": "clean_energy"},
+            # Carbon
+            {"name": "Heirloom Carbon", "description": "Direct air capture using enhanced rock weathering", "location": "San Francisco, CA", "vertical": "carbon_management"},
+            {"name": "Charm Industrial", "description": "Bio-oil injection for permanent carbon removal", "location": "San Francisco, CA", "vertical": "carbon_management"},
+            {"name": "Pachama", "description": "AI platform to verify forest carbon credits", "location": "San Francisco, CA", "vertical": "carbon_management"},
+            {"name": "Terraset", "description": "Carbon removal marketplace for businesses", "location": "San Francisco, CA", "vertical": "carbon_management"},
+            {"name": "Sustaera", "description": "Direct air capture using monolith sorbents", "location": "Chapel Hill, NC", "vertical": "carbon_management"},
+            # Storage
+            {"name": "Form Energy", "description": "Iron-air batteries for multi-day grid-scale energy storage", "location": "Somerville, MA", "vertical": "energy_storage"},
+            {"name": "Ambri", "description": "Liquid metal batteries for long-duration grid storage", "location": "Marlborough, MA", "vertical": "energy_storage"},
+            {"name": "Noon Energy", "description": "Carbon-oxygen batteries for long-duration storage", "location": "Menlo Park, CA", "vertical": "energy_storage"},
+            {"name": "Ascend Elements", "description": "Battery materials from recycled lithium-ion batteries", "location": "Westborough, MA", "vertical": "energy_storage"},
+            # Transportation
+            {"name": "Joby Aviation", "description": "Electric air taxi for urban mobility", "location": "Santa Cruz, CA", "vertical": "green_transportation"},
+            {"name": "Lilium", "description": "Electric vertical takeoff and landing jets", "location": "Munich, Germany", "vertical": "green_transportation"},
+            {"name": "Arcimoto", "description": "Electric vehicles for everyday trips", "location": "Eugene, OR", "vertical": "green_transportation"},
+            {"name": "Volta Industries", "description": "EV charging network at retail locations", "location": "San Francisco, CA", "vertical": "green_transportation"},
+            {"name": "Einride", "description": "Autonomous and electric freight transport", "location": "Stockholm, Sweden", "vertical": "green_transportation"},
+            # Agriculture
+            {"name": "Pivot Bio", "description": "Microbial nitrogen for corn replacing synthetic fertilizer", "location": "Berkeley, CA", "vertical": "sustainable_agriculture"},
+            {"name": "Apeel Sciences", "description": "Plant-based coatings to extend produce shelf life", "location": "Goleta, CA", "vertical": "sustainable_agriculture"},
+            {"name": "Bowery Farming", "description": "Indoor vertical farming with zero pesticides", "location": "New York, NY", "vertical": "sustainable_agriculture"},
+            {"name": "Sound Agriculture", "description": "Nutrient efficiency products for crop yields", "location": "Emeryville, CA", "vertical": "sustainable_agriculture"},
+            {"name": "Plenty", "description": "Indoor vertical farming using AI and robotics", "location": "San Francisco, CA", "vertical": "sustainable_agriculture"},
+            # Built Environment
+            {"name": "BlocPower", "description": "Green retrofit financing for urban buildings", "location": "New York, NY", "vertical": "built_environment"},
+            {"name": "Turntide Technologies", "description": "Smart motor systems to cut building energy use", "location": "San Jose, CA", "vertical": "built_environment"},
+            {"name": "Dandelion Energy", "description": "Home geothermal heating and cooling systems", "location": "Mount Kisco, NY", "vertical": "built_environment"},
+            {"name": "Sealed", "description": "Whole-home energy efficiency upgrade financing", "location": "New York, NY", "vertical": "built_environment"},
+            {"name": "Pearl Certification", "description": "Green home certification for energy features", "location": "Charlottesville, VA", "vertical": "built_environment"},
+            # Circular Economy
+            {"name": "Ginkgo Bioworks", "description": "Cell programming platform for biological products", "location": "Boston, MA", "vertical": "circular_economy"},
+            {"name": "Novamont", "description": "Bioplastics and bioproducts from renewable resources", "location": "Novara, Italy", "vertical": "circular_economy"},
+            {"name": "Solugen", "description": "Carbon-negative chemistry using bioengineered enzymes", "location": "Houston, TX", "vertical": "circular_economy"},
+            {"name": "Nth Cycle", "description": "Critical mineral recycling from e-waste", "location": "Boston, MA", "vertical": "circular_economy"},
+            # Climate Fintech
+            {"name": "Watershed", "description": "Enterprise carbon management and reporting platform", "location": "San Francisco, CA", "vertical": "climate_fintech"},
+            {"name": "Rubicon Carbon", "description": "Carbon credit portfolio management for enterprises", "location": "New York, NY", "vertical": "climate_fintech"},
+            {"name": "Persefoni", "description": "Climate management and accounting platform", "location": "Scottsdale, AZ", "vertical": "climate_fintech"},
+            {"name": "Xpansiv", "description": "Market infrastructure for environmental commodities", "location": "San Francisco, CA", "vertical": "climate_fintech"},
+            # Water
+            {"name": "Energy Recovery", "description": "Energy recovery devices for water desalination", "location": "San Leandro, CA", "vertical": "water_ocean"},
+            {"name": "Gradiant", "description": "Water treatment technology for industrial wastewater", "location": "Boston, MA", "vertical": "water_ocean"},
+            {"name": "Aquacycl", "description": "Wastewater treatment using bioelectrochemical systems", "location": "San Diego, CA", "vertical": "water_ocean"},
+            # Industrial Decarbonization
+            {"name": "Boston Metal", "description": "Green steel production using molten oxide electrolysis", "location": "Woburn, MA", "vertical": "industrial_decarbonization"},
+            {"name": "Electra Steel", "description": "Low-temperature iron production using electricity", "location": "Boulder, CO", "vertical": "industrial_decarbonization"},
+            {"name": "Sublime Systems", "description": "Electrochemical cement production replacing kilns", "location": "Somerville, MA", "vertical": "industrial_decarbonization"},
+            {"name": "Twelve", "description": "CO2 conversion to chemicals and fuels using electrolysis", "location": "Berkeley, CA", "vertical": "industrial_decarbonization"},
+            # Climate Adaptation
+            {"name": "Jupiter Intelligence", "description": "Climate risk analytics for infrastructure and finance", "location": "San Mateo, CA", "vertical": "climate_adaptation"},
+            {"name": "Kettle", "description": "Reinsurance for wildfire using ML risk modeling", "location": "San Francisco, CA", "vertical": "climate_adaptation"},
+            {"name": "One Concern", "description": "Disaster resilience analytics using AI", "location": "Palo Alto, CA", "vertical": "climate_adaptation"},
+            # Grid Management
+            {"name": "AutoGrid", "description": "AI-powered energy flexibility management platform", "location": "Redwood City, CA", "vertical": "grid_energy_management"},
+            {"name": "Leap", "description": "Virtual power plant network aggregating distributed energy", "location": "San Francisco, CA", "vertical": "grid_energy_management"},
+            {"name": "Enbala Power Networks", "description": "Distributed energy resource optimization platform", "location": "Vancouver, BC", "vertical": "grid_energy_management"},
         ]
 
+        startups = []
         for company in yc_climate_companies:
             primary_vertical, secondary = self.category_mapper.map_startup(
                 company["name"], company["description"]
             )
-            
-            # Use explicit vertical if mapping failed
             if not primary_vertical:
                 primary_vertical = company.get("vertical", "clean_energy")
-            
+
             startup = {
                 "name": company["name"],
                 "short_description": company["description"],
@@ -92,139 +473,12 @@ class ClimateScraper:
                 "primary_vertical": primary_vertical,
                 "secondary_verticals": secondary,
                 "source": "yc",
-                "source_id": company["name"].lower().replace(" ", "-"),
+                "source_id": re.sub(r"[^a-z0-9]", "-", company["name"].lower())[:50],
                 "website_url": f"https://www.ycombinator.com/companies/{company['name'].lower().replace(' ', '-')}",
             }
             startups.append(startup)
 
         logger.info(f"Loaded {len(startups)} YC climate companies")
-        return startups
-
-    async def scrape_climatebase(self) -> List[Dict[str, Any]]:
-        """Scrape companies from Climatebase."""
-        logger.info("Scraping Climatebase companies...")
-        startups = []
-
-        try:
-            # Climatebase company listings
-            html = await self._fetch_url(
-                "https://climatebase.org/companies?l=&q=&sector=&stage="
-            )
-            if not html:
-                logger.warning("Could not fetch Climatebase page, skipping")
-                return startups
-
-            soup = BeautifulSoup(html, "html.parser")
-
-            # Parse company data from script tags or list items
-            company_items = soup.select('div[class*="company"]')
-
-            for item in company_items[:500]:
-                try:
-                    name_elem = item.select_one('h3, [class*="name"]')
-                    desc_elem = item.select_one('p, [class*="description"]')
-                    link_elem = item.select_one("a")
-
-                    if not name_elem:
-                        continue
-
-                    name = name_elem.get_text(strip=True)
-                    description = (
-                        desc_elem.get_text(strip=True) if desc_elem else ""
-                    )
-                    url = link_elem.get("href", "") if link_elem else ""
-
-                    primary_vertical, secondary = self.category_mapper.map_startup(
-                        name, description
-                    )
-
-                    startup = {
-                        "name": name,
-                        "short_description": description,
-                        "primary_vertical": primary_vertical,
-                        "secondary_verticals": secondary,
-                        "source": "climatebase",
-                        "website_url": url if url.startswith("http") else "",
-                    }
-                    startups.append(startup)
-                except Exception as e:
-                    logger.warning(f"Error parsing Climatebase company: {e}")
-                    continue
-
-        except Exception as e:
-            logger.error(f"Error scraping Climatebase: {e}")
-
-        logger.info(f"Scraped {len(startups)} companies from Climatebase")
-        return startups
-
-    async def scrape_pitchbook(self) -> List[Dict[str, Any]]:
-        """
-        Scrape climate-related companies from PitchBook API (sandbox for dev).
-        """
-        logger.info("Scraping PitchBook climate companies...")
-        startups = []
-
-        api_key = getattr(settings, "pitchbook_api_key", None)
-        if not api_key or api_key == "your_sandbox_api_key_here":
-            logger.warning("No PitchBook API key configured, skipping")
-            return startups
-
-        # Example: filter for climate/cleantech/renewable/ESG companies
-        # Adjust filters as needed to match your other scrapers
-        base_url = "https://api.pitchbook.com/companies/search"
-        params = {
-            "query": "climate OR clean OR renewable OR cleantech OR sustainability OR ESG",
-            "perPage": 100,
-            "page": 1
-        }
-        headers = {
-            "Authorization": f"PB-Token {api_key}"
-        }
-
-        try:
-            await asyncio.sleep(self.rate_limit_delay)
-            async with self.session.get(base_url, params=params, headers=headers) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    logger.error(f"PitchBook API error {resp.status}: {error_text}")
-                    logger.warning("PitchBook scraping skipped - check your API key and endpoint")
-                    return startups
-                data = await resp.json()
-                results = data.get("results") or data.get("companies") or []
-                for company in results:
-                    pbid = company.get("pbId")
-                    # Fetch company details
-                    detail_url = f"https://api.pitchbook.com/companies/{pbid}/bio"
-                    async with self.session.get(detail_url, headers=headers) as detail_resp:
-                        if detail_resp.status != 200:
-                            logger.warning(f"PitchBook detail error for {pbid}: {detail_resp.status}")
-                            continue
-                        detail = await detail_resp.json()
-                        name = detail.get("name")
-                        description = detail.get("description", "")
-                        location = detail.get("location", "")
-                        founded_year = detail.get("foundedYear")
-                        website_url = detail.get("website")
-                        employee_count = detail.get("employeeCount")
-                        # Map to verticals
-                        primary_vertical, secondary = self.category_mapper.map_startup(name, description)
-                        startup = {
-                            "name": name,
-                            "short_description": description,
-                            "headquarters_location": location,
-                            "founded_year": founded_year,
-                            "website_url": website_url,
-                            "employee_count": employee_count,
-                            "primary_vertical": primary_vertical,
-                            "secondary_verticals": secondary,
-                            "source": "pitchbook",
-                            "source_id": pbid,
-                        }
-                        startups.append(startup)
-        except Exception as e:
-            logger.error(f"Error scraping PitchBook: {e}")
-        
-        logger.info(f"Scraped {len(startups)} companies from PitchBook")
         return startups
 
     def generate_sample_data(self, count: int = 500) -> List[Dict[str, Any]]:
@@ -333,7 +587,6 @@ class ClimateScraper:
         for i in range(count):
             vertical = random.choice(verticals)
 
-            # Generate unique name
             base_name = random.choice(sample_names)
             name = f"{base_name} {random.choice(['AI', 'Tech', 'Systems', 'Solutions', 'Labs', 'Energy', ''])}"
             suffix = i // 20
@@ -347,17 +600,15 @@ class ClimateScraper:
             descriptions = sample_descriptions.get(vertical, ["Climate technology startup"])
             description = random.choice(descriptions)
 
-            # Random funding (weighted toward lower amounts)
             funding = None
             if random.random() > 0.3:
                 funding = random.choice([
-                    random.randint(100000, 1000000),      # Seed
-                    random.randint(1000000, 10000000),    # Series A
-                    random.randint(10000000, 50000000),   # Series B
-                    random.randint(50000000, 200000000),  # Series C+
+                    random.randint(100000, 1000000),
+                    random.randint(1000000, 10000000),
+                    random.randint(10000000, 50000000),
+                    random.randint(50000000, 200000000),
                 ])
 
-            # Random year (weighted toward recent years)
             year = random.choices(
                 range(2010, 2025),
                 weights=[1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 8, 5],
@@ -390,21 +641,27 @@ class ClimateScraper:
         return startups
 
     async def scrape_all_sources(self) -> int:
-        """Scrape from YC only for now."""
+        """Scrape from all sources. Uses Firecrawl if API key is available, else curated list."""
         all_startups = []
 
-        # Scrape from YC
+        # Check for Firecrawl API key
+        firecrawl_key = getattr(settings, "firecrawl_api_key", "") or ""
+
+        if firecrawl_key:
+            logger.info("Firecrawl API key found — using Firecrawl for comprehensive scraping")
+            try:
+                fc_scraper = FirecrawlScraper(self.db, firecrawl_key)
+                saved = fc_scraper.scrape_all_sources()
+                logger.info(f"Firecrawl scraping complete: {saved} startups saved")
+                return saved
+            except Exception as e:
+                logger.error(f"Firecrawl scraping failed, falling back to curated list: {e}")
+
+        # Fallback: curated YC list
+        logger.info("Using curated YC climate company list...")
         yc_startups = await self.scrape_yc_climate()
         all_startups.extend(yc_startups)
 
-        # Climatebase and PitchBook disabled for now
-        # cb_startups = await self.scrape_climatebase()
-        # all_startups.extend(cb_startups)
-
-        # pitchbook_startups = await self.scrape_pitchbook()
-        # all_startups.extend(pitchbook_startups)
-
-        # Save to database
         saved_count = 0
         for startup in all_startups:
             result = self.db.insert_startup(startup)

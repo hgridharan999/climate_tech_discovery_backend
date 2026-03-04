@@ -4,32 +4,27 @@
 # Set working directory
 cd /app || cd "$(dirname "$0")"
 
-# Set Python path to include current directory
+# Set Python path
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
-# Debug: Print environment info
-echo "======= DEPLOYMENT DEBUG INFO ======="
+# Cache ML models in the persistent volume so they survive redeploys
+export SENTENCE_TRANSFORMERS_HOME="${SENTENCE_TRANSFORMERS_HOME:-/app/data/models}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-/app/data/models}"
+export HF_HOME="${HF_HOME:-/app/data/models}"
+
+# Ensure model cache directory exists in the persistent volume
+mkdir -p "$SENTENCE_TRANSFORMERS_HOME"
+
+echo "======= DEPLOYMENT INFO ======="
 echo "Working directory: $(pwd)"
-echo "PYTHONPATH: $PYTHONPATH"
 echo "Python version: $(python --version)"
-echo ""
-echo "Contents of src/:"
-ls -la src/
-echo ""
-echo "Checking for src/data/:"
-if [ -d "src/data" ]; then
-    echo "✓ src/data EXISTS"
-    ls -la src/data/
-else
-    echo "✗ src/data MISSING!"
-fi
-echo "====================================="
+echo "Model cache: $SENTENCE_TRANSFORMERS_HOME"
+echo "==============================="
+
+# Initialize database and build search indexes
+echo "Initializing database and search indexes..."
+python init_railway.py || echo "Warning: Initialization failed — API will start with degraded search"
 echo ""
 
-# Initialize database if needed
-echo "Initializing database..."
-python init_railway.py || echo "Warning: Database initialization failed"
-echo ""
-
-# Run uvicorn
+# Start the API
 exec python -m uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
