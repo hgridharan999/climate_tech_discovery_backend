@@ -47,11 +47,14 @@ class FirecrawlScraper:
         primary_vertical, secondary = self.category_mapper.map_startup(
             name, f"{desc} {sector}"
         )
+        slug = re.sub(r"[^a-z0-9]", "-", name.lower())[:50]
+        yc_url = f"https://www.ycombinator.com/companies/{slug}" if source == "yc" else None
         return {
             "name": name,
             "short_description": desc[:500],
             "headquarters_location": company.get("location", "") or "",
             "website_url": company.get("website", "") or "",
+            "yc_url": yc_url,
             "employee_count": company.get("employee_count", "") or "",
             "founded_year": company.get("founded_year") or None,
             "total_funding_usd": company.get("total_funding_usd") or None,
@@ -59,7 +62,7 @@ class FirecrawlScraper:
             "primary_vertical": primary_vertical or "clean_energy",
             "secondary_verticals": secondary,
             "source": source,
-            "source_id": re.sub(r"[^a-z0-9]", "-", name.lower())[:50],
+            "source_id": slug,
         }
 
     _COMPANY_SCHEMA = {

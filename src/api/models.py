@@ -15,6 +15,7 @@ class StartupBase(BaseModel):
     funding_stage: Optional[str] = None
     employee_count: Optional[str] = None
     website_url: Optional[str] = None
+    yc_url: Optional[str] = None
     linkedin_url: Optional[str] = None
     headquarters_location: Optional[str] = None
     country: Optional[str] = None

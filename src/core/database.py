@@ -51,6 +51,7 @@ class Database:
                     funding_stage TEXT,
                     employee_count TEXT,
                     website_url TEXT,
+                    yc_url TEXT,
                     linkedin_url TEXT,
                     crunchbase_url TEXT,
                     headquarters_location TEXT,
@@ -66,6 +67,23 @@ class Database:
                     UNIQUE(name, source)
                 )
             """)
+
+            # Migration: add yc_url column if missing (for existing databases)
+            try:
+                cursor.execute("ALTER TABLE startups ADD COLUMN yc_url TEXT")
+                conn.commit()
+                logger.info("Migrated: added yc_url column")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            # Backfill yc_url for existing YC records that don't have it
+            cursor.execute("""
+                UPDATE startups
+                SET yc_url = 'https://www.ycombinator.com/companies/' || source_id
+                WHERE source = 'yc' AND (yc_url IS NULL OR yc_url = '')
+                  AND source_id IS NOT NULL AND source_id != ''
+            """)
+            conn.commit()
 
             # FTS5 virtual table for full-text search
             cursor.execute("""
@@ -166,10 +184,10 @@ class Database:
                     INSERT INTO startups (
                         name, short_description, long_description, founded_year,
                         total_funding_usd, funding_stage, employee_count, website_url,
-                        linkedin_url, crunchbase_url, headquarters_location, country,
+                        yc_url, linkedin_url, crunchbase_url, headquarters_location, country,
                         primary_vertical, secondary_verticals, technologies, keywords,
                         source, source_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(name, source) DO UPDATE SET
                         short_description = excluded.short_description,
                         long_description = excluded.long_description,
@@ -178,6 +196,7 @@ class Database:
                         funding_stage = excluded.funding_stage,
                         employee_count = excluded.employee_count,
                         website_url = excluded.website_url,
+                        yc_url = excluded.yc_url,
                         linkedin_url = excluded.linkedin_url,
                         crunchbase_url = excluded.crunchbase_url,
                         headquarters_location = excluded.headquarters_location,
@@ -197,6 +216,7 @@ class Database:
                         startup.get("funding_stage"),
                         startup.get("employee_count"),
                         startup.get("website_url"),
+                        startup.get("yc_url"),
                         startup.get("linkedin_url"),
                         startup.get("crunchbase_url"),
                         startup.get("headquarters_location"),
